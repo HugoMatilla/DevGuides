@@ -120,6 +120,7 @@ fun main() = runBlocking<Unit> {
 ### Terminal flow operators
 > Terminal operators on flows are suspending functions that start a collection of the flow.
 * `collect()`: the most basic one.
+* `collectLatest()`: skip all but last emission. More in [Concurrency operators](#concurrency-operators)
 * `toList()` and `toSet()`:  Conversion to various collections.
 * `first()`: Get the first value. 
 * `single()`: ensure that a flow emits only one value.
@@ -249,7 +250,21 @@ val time = measureTimeMillis {
 // 3
 ```
 
-### `collectLatest()`
+### `mapLatest()`
+* Launchs a new coroutine for each call to the map transform.
+* Then, if a new value is emitted before the previous coroutine completes, it'll cancel it before starting a new one.
+* It provides a suspending lambda for you in a new coroutine, so you can call regular suspend functions directly from `mapLatest`.
+
+```kotlin
+filterFromCloud.asFlow()
+  .mapLatest { filter ->
+      if (filter == NO_FILTER) getAllFlow()
+      else getAllWithFilterFlow(filter)
+  }
+```
+
+## Concurrency in terminal operators
+### `collectLatest()` 
 Cancels a slow collector and restart it every time a new value is emitted. 
 
 ```kotlin
@@ -307,6 +322,17 @@ nums.combine(strs) { a, b -> "$a -> $b" } // compose a single string with "combi
 nums: 1  -----  2  -------- 3  
 strs: --- A  --------- B ---------- C
 out:  --- 1A -- 2A --- 2B -- 3B --- 3C
+```
+
+### Other Sample of `combine`
+When the result of customSortFlow is available, this will `combine` it with the latest value from
+the flow above.  Thus, as long as both `items`  and `sortOrder` are have an initial value (their
+flow has emitted at least one value), any change to either `items` or `sortOrder`  will call `items.applySort(sortOrder)`.
+
+```kotlin
+val items: Flow<List<Item>>
+    get() = itemDao.getItemsFlow()
+      .combine(customSortFlow) { items, sortOrder -> items.applySort(sortOrder) }
 ```
 
 ## `flatMap` Familly
@@ -496,6 +522,22 @@ fun loadAllItems(): Flow<List<Item>>
 val allItems: Flow<List<Item>> = dao.loadAllItems()
   .flowOn(defaulDispatcher)
   .conflate()
+```
+## LiveData
+* Just like the LiveData builder(`livedata{...}`), `asLiveData` adds a configurable timeout to the LiveData generated. 
+* It keeps us from restarting our query every time the configuration changes (such as from device rotation).
+
+# Tricks
+## `onStart()`
+* Use `onStart()` to run suspending code before a flow runs. 
+* It can even emit extra values into the flow, so you could use it to emit a `Loading` state on a network request flow.
+
+```kotlin
+private val items = itmesDao.getAllFlow()
+   .onStart {
+       emit(emptyList())
+       delay(1500)
+   }
 ```
 
 # StateFlow/EventFlow
