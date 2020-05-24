@@ -126,10 +126,14 @@ fun main() = runBlocking<Unit> {
 * `reduce()` and `fold()`: For reducing a flow to a value.
  
  ## Completion
+ 
+* The only way to consume values or iterate over a flow is to use a terminal operator.
+* Because all terminal operators are suspend functions, the work is bound to the lifetime of the scope that calls them. 
+* When the scope is cancelled, the flow will automatically cancel itself using the regular coroutine cooperative cancellation rules. 
+
  ### Imperative: finally block
  ```kotlin
- fun foo(): Flow<Int> = (1..3).asFlow()
-
+fun foo(): Flow<Int> = (1..3).asFlow()
 fun main() = runBlocking<Unit> {
     try {
         foo().collect { value -> println(value) }
@@ -142,6 +146,7 @@ fun main() = runBlocking<Unit> {
 // 3
 // Done
  ```
+
  ### Declarative handling
  ```kotlin
  foo()
@@ -154,6 +159,13 @@ fun main() = runBlocking<Unit> {
 ```
 
 # Working with Flows
+
+## Upstream vs Downstream   
+```java
+//   Upstream     Downstream   
+emiter ----> process ----> collect
+``` 
+
 ## Where does it run?
 ![img](imgs/flow-context.png)
 ## Change context
@@ -176,11 +188,6 @@ fun main() = runBlocking<Unit> {
 }
 ```
 
-## Upstream vs Downstream   
-```java
-//   Upstream     Downstream   
-emiter ----> process ----> collect
-``` 
 ## Concurrency operators
 * Because emit always wait to collect to end, Flow has automatic **Backpressure**. 
 * Concurrency operators allow us to define how we handle the **Backpressure** and achieve **Concurrency**

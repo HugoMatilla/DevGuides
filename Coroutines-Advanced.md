@@ -87,10 +87,11 @@ LifeCycle States:
 5. Cancelling
 6. Cancelled
 
-```
+```kotlin
 New-[start]->Active-[wait children]-> Completing -[finish]->Completed
                  \                     /
-                  \                   /
+                   \                 /
+                     \             /
                      [cancel / fail] 
                             |
                             V
@@ -214,7 +215,7 @@ withContext(Dispatchers.IO){
 # Android
 ## Connect to the Android Lyfecycle
 Connect the corutine scope to one parent Job
-```
+```kotlin
     var parentJob = Job()
     override fun start() {
         if (!parentJob.isActive)
