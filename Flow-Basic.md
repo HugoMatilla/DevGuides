@@ -44,7 +44,7 @@ nums.collect { log(it) } //They are emited a second time
 
 ## Structure Concurrency
 * Using concurrency scopes
-* Use `withTimeoutOrNull()` for timers
+* For example: Use `withTimeoutOrNull()` for timers
 ```kotlin
   fun itemsFlow() = flow {
     for (item in listOf(1, 2, 3, 4, 5)) {
@@ -63,7 +63,7 @@ nums.collect { log(it) } //They are emited a second time
 
 ## Operators
 ### Transformation
-* `map()` and `filter()`  as in Rx
+* `map()` and `filter()`  as in *Rx*
 ```kotlin
 val itemsFlow = flowOf(1, 2, 3, 4, 5)
 itemsFlow
@@ -120,7 +120,7 @@ fun main() = runBlocking<Unit> {
 ### Terminal flow operators
 > Terminal operators on flows are suspending functions that start a collection of the flow.
 * `collect()`: the most basic one.
-* `collectLatest()`: skip all but last emission. More in [Concurrency operators](#concurrency-operators)
+* `collectLatest()`: skip all but last emission. More in [Concurrency in terminal operators](#concurrency-in-terminal-operators)
 * `toList()` and `toSet()`:  Conversion to various collections.
 * `first()`: Get the first value. 
 * `single()`: ensure that a flow emits only one value.
@@ -172,7 +172,7 @@ emiter ----> process ----> collect
 ## Change context
 * `flowOn` : Changes the context where this flow is executed to the given context.
 * `context` does not leak into the downstream flow.
-* Upstream never affect the context of the downstream.
+* Upstream never affect the `context` of the downstream.
 
  ![img](imgs/flow-change-context1.png)
  ![img](imgs/flow-change-context2.png)
@@ -324,7 +324,7 @@ strs: --- A  --------- B ---------- C
 out:  --- 1A -- 2A --- 2B -- 3B --- 3C
 ```
 
-### Other Sample of `combine`
+### Another sample of `combine`
 When the result of customSortFlow is available, this will `combine` it with the latest value from
 the flow above.  Thus, as long as both `items`  and `sortOrder` are have an initial value (their
 flow has emitted at least one value), any change to either `items` or `sortOrder`  will call `items.applySort(sortOrder)`.
