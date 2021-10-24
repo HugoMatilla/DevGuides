@@ -1,0 +1,1 @@
+* Reduce/Increase size (ie. Project View): Cmd+Shft + <-/->
