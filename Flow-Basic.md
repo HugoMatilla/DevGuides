@@ -540,4 +540,29 @@ private val items = itmesDao.getAllFlow()
    }
 ```
 
-# StateFlow/EventFlow
+# StateFlow
+* A primitive for state handling.
+* Simplify ConflatedBroadcastChannel for state publication scenarios.
+* Is a flow that emits updates in its value to its collectors.
+* Value can be observed by collecting values from the flow.
+
+
+```kotlin
+fun main() = runBlocking {
+    val stateFlow = MutableStateFlow<Int>(0)
+
+    // Observe values
+    val job = launch { stateFlow.collect { print("$it ") } }
+
+    // Change values
+    (1..5).forEach {
+        delay(500)
+        stateFlow.value = it
+    }
+
+    // Cancel running job
+    job.cancel()
+    job.join()
+}
+// 1 2 3 4 5
+```
