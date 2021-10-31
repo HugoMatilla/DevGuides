@@ -2,7 +2,7 @@
 Extracted from [Dagger Codelab](https://developer.android.com/codelabs/android-dagger)
 
 # Adding Dagger
-*app//build.gradle*
+*app/build.gradle*
 ```kotlin
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
@@ -135,7 +135,7 @@ class RegistrationActivity : AppCompatActivity() {
     (application as MyApplication).appComponent.inject(this)
     ...
   }
-  fun inject(activity: RegistrationActivity)
+  
 }
 ```
 
@@ -162,3 +162,177 @@ class UserManager @Inject constructor(private val storage: Storage) {
   ...
 }
 ```
+
+--- 
+
+# ADVANCE
+> Fragments - Best practices
+> An Activity injects Dagger in the onCreate method before calling super.
+> A Fragment injects Dagger in the onAttach method after calling super.
+
+## Subcomponents
+* Subcomponents are components that inherit and extend the object graph of a parent component. Thus, all objects provided in the parent component will be provided in the subcomponent too.
+* In this way, an object from a subcomponent can depend on an object provided by the parent component.
+* You need to create the factory of the subcomponent. And then expose it in the parent component.
+
+```kotlin
+@Subcomponent
+interface RegistrationComponent {
+// Factory to create instances of RegistrationComponent
+  @Subcomponent.Factory
+  interface Factory {
+    fun create(): RegistrationComponent
+  }
+
+  // Classes that can be injected by this Component
+  fun inject(activity: RegistrationActivity)
+  fun inject(fragment: EnterDetailsFragment)
+  fun inject(fragment: TermsAndConditionsFragment)
+}
+```
+
+Add the subcomponent to the AppComponent
+
+```kotlin
+@Singleton
+@Component(modules = [StorageModule::class])
+interface AppComponent {
+  ...
+    // Expose RegistrationComponent factory from the graph
+    fun registrationComponent(): RegistrationComponent.Factory
+  ...
+}
+
+```
+
+Now we need a module to encapsulate the Subcomponents and reference it to the AppComponent
+
+```kotlin
+// This module tells AppComponent which are its subcomponents
+@Module(subcomponents = [RegistrationComponent::class])
+class AppSubcomponents
+
+```
+
+```kotlin
+@Singleton
+@Component(modules = [StorageModule::class, AppSubcomponents::class])
+interface AppComponent { ... }
+
+```
+
+**There are two different ways to interact with the Dagger graph:**
+* Declaring a function that returns `Unit` and takes a class as a parameter allows field injection in that class (e.g. `fun inject(activity: MainActivity)`).
+* Declaring a function that returns a type allows retrieving types from the graph (e.g. `fun registrationComponent(): RegistrationComponent.Factory`).
+
+
+## Scoping
+**Scoping rules:**
+ * The scope annotation's name should not be explicit to the purpose it fulfills. It should be named depending on the lifetime it has since annotations can be reused by sibling Components. (`ActivityScope` instead of `RegistrationScope`)
+ * When a type is marked with a scope annotation, it can only be used by Components that are annotated with the same scope.
+ *  When a Component is marked with a scope annotation, it can only provide types with that annotation or types that have no annotation.
+ * A subcomponent cannot use a scope annotation used by one of its parent Components.
+
+Components also involve subcomponents in this context.
+
+
+```kotlin
+@Scope
+@MustBeDocumented
+@Retention(value = AnnotationRetention.RUNTIME)
+annotation class ActivityScope
+```
+
+```kotlin
+// Scopes this ViewModel to components that use @ActivityScope
+@ActivityScope
+class RegistrationViewModel @Inject constructor(val userManager: UserManager) {
+    ...
+}
+
+```
+
+```kotlin
+// Classes annotated with @ActivityScope will have a unique instance in this Component
+@ActivityScope
+@Subcomponent
+interface RegistrationComponent { ... }
+
+```
+
+# @Provides
+* To tell Dagger how to provide an instance of a class inside a Dagger module. (Apart from the @Inject and @Binds)
+* The return type of the @Provides function (it doesn't matter how it's called) tells Dagger what type is added to the graph. 
+* The parameters of that function are the dependencies that Dagger needs to satisfy before providing an instance of that type.
+
+```kotlin
+@Module
+class StorageModule {
+
+    // @Provides tell Dagger how to create instances of the type that this function 
+    // returns (i.e. Storage).
+    // Function parameters are the dependencies of this type (i.e. Context).
+    @Provides
+    fun provideStorage(context: Context): Storage {
+        // Whenever Dagger needs to provide an instance of type Storage,
+        // this code (the one inside the @Provides method) will be run.
+        return SharedPreferencesStorage(context)
+    }
+}
+
+```
+
+# Qualifiers
+* To add different implementations of the same type to the Dagger graph. 
+
+> A qualifier is a custom annotation that will be used to identify a dependency.
+
+```kotlin
+@Retention(AnnotationRetention.BINARY)
+@Qualifier
+annotation class RegistrationStorage
+
+@Retention(AnnotationRetention.BINARY)
+@Qualifier
+annotation class LoginStorage
+
+@Module
+class StorageModule {
+
+    @RegistrationStorage
+    @Provides
+    fun provideRegistrationStorage(context: Context): Storage {
+        return SharedPreferencesStorage("registration", context)
+    }
+
+    @LoginStorage
+    @Provides
+    fun provideLoginStorage(context: Context): Storage {
+        return SharedPreferencesStorage("login", context)
+    }
+}
+
+```
+
+To use them
+
+```kotlin
+// In a method
+class ClassDependingOnStorage(@RegistrationStorage private val storage: Storage) { ... } 
+
+// As an injected field
+class ClassDependingOnStorage {
+
+    @Inject
+    @field:RegistrationStorage lateinit var storage: Storage
+}
+
+```
+
+
+## @Named annotation.
+* Same functionallity as qualifiers but Qualifiers are prefered because:
+
+* They can be stripped out from Proguard or R8
+* You don't need to keep a shared constant for matching the names
+* They can be documented
