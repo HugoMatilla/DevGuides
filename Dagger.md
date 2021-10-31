@@ -260,7 +260,7 @@ interface RegistrationComponent { ... }
 
 ```
 
-# @Provides
+## @Provides
 * To tell Dagger how to provide an instance of a class inside a Dagger module. (Apart from the @Inject and @Binds)
 * The return type of the @Provides function (it doesn't matter how it's called) tells Dagger what type is added to the graph. 
 * The parameters of that function are the dependencies that Dagger needs to satisfy before providing an instance of that type.
@@ -282,7 +282,7 @@ class StorageModule {
 
 ```
 
-# Qualifiers
+## Qualifiers
 * To add different implementations of the same type to the Dagger graph. 
 
 > A qualifier is a custom annotation that will be used to identify a dependency.
@@ -330,7 +330,7 @@ class ClassDependingOnStorage {
 ```
 
 
-## @Named annotation.
+## @Named annotations.
 * Same functionallity as qualifiers but Qualifiers are prefered because:
 
 * They can be stripped out from Proguard or R8
