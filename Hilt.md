@@ -167,3 +167,148 @@ abstract class NavigationModule {
   abstract fun bindNavigator(impl: AppNavigatorImpl): AppNavigator
 }
 ```
+
+# Qualifiers
+* A qualifier is an annotation used to identify a binding.
+## Two implementations for the same interface
+
+*LoggingModule.kt*
+```kotlin
+@Qualifier
+annotation class InMemoryLogger
+
+@Qualifier
+annotation class DatabaseLogger
+
+@InstallIn(SingletonComponent::class)
+@Module
+abstract class LoggingDatabaseModule {
+
+    @DatabaseLogger
+    @Singleton
+    @Binds
+    abstract fun bindDatabaseLogger(impl: LoggerLocalDataSource): LoggerDataSource
+}
+
+@InstallIn(ActivityComponent::class)
+@Module
+abstract class LoggingInMemoryModule {
+
+    @InMemoryLogger
+    @ActivityScoped
+    @Binds
+    abstract fun bindInMemoryLogger(impl: LoggerInMemoryDataSource): LoggerDataSource
+}
+
+```
+
+```kotlin
+@AndroidEntryPoint
+class LogsFragment : Fragment() {
+
+    @InMemoryLogger
+    @Inject lateinit var logger: LoggerDataSource
+    ...
+}
+
+```
+
+```kotlin
+@AndroidEntryPoint
+class OtherFragment : Fragment() {
+
+    @DatabaseLogger
+    @Inject lateinit var logger: LoggerDataSource
+    ...
+}
+
+```
+
+# Testing
+* Testing with Hilt requires no maintenance because Hilt automatically generates a new set of components for each test.
+
+## Dependencies
+
+```kotlin
+dependencies {
+    // Hilt testing dependency
+    androidTestImplementation "com.google.dagger:hilt-android-testing:$hilt_version"
+    // Make Hilt generate code in the androidTest folder
+    kaptAndroidTest "com.google.dagger:hilt-android-compiler:$hilt_version"
+}
+```
+
+## CustomTestRunner
+```kotlin
+class CustomTestRunner : AndroidJUnitRunner() {
+
+    override fun newApplication(cl: ClassLoader?, name: String?, context: Context?): Application {
+        return super.newApplication(cl, HiltTestApplication::class.java.name, context)
+    }
+}
+```
+
+Replace the default testInstrumentationRunner content with this:
+
+```kotlin
+testInstrumentationRunner content with this:
+
+...
+android {
+    ...
+    defaultConfig {
+        ...
+        testInstrumentationRunner "com.example.android.hilt.CustomTestRunner"
+    }
+    ...
+}
+...
+
+```
+
+## Run the tests
+Next, for an emulator test class to use Hilt, it needs to:
+* Be annotated with `@HiltAndroidTest` which is responsible for generating the Hilt components for each test
+* Use the `HiltAndroidRule` that manages the components' state and is used to perform injection on your test.
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+@HiltAndroidTest
+class AppTest {
+
+    @get:Rule
+    var hiltRule = HiltAndroidRule(this)
+
+    ...
+}
+```
+
+# @EntryPoint
+* Used to inject dependencies in classes not supported by Hilt.
+* An entry point is an interface with an accessor method for each binding type we want
+* The best practice is adding the new entry point interface inside the class that uses it.
+  
+```kotlin
+class LogsContentProvider : ContentProvider() {
+
+  @InstallIn(SingletonComponent::class)
+  @EntryPoint
+  interface LogsContentProviderEntryPoint {
+    fun logDao(): LogDao
+  }
+
+  private fun getLogDao(appContext: Context): LogDao {
+    val hiltEntryPoint = EntryPointAccessors.fromApplication(
+      appContext,
+      LogsContentProviderEntryPoint::class.java
+    )
+    return hiltEntryPoint.logDao()
+  }
+  ...
+}
+```
+Notice that the interface is annotated with the `@EntryPoint` and it's installed in the `SingletonComponent` since we want the dependency from an instance of the Application container. Inside the interface, we expose methods for the bindings we want to access, in our case, `LogDao`.
+
+* To access an entry point, use the appropriate static method from EntryPointAccessors. 
+* The parameter should be either the component instance or the `@AndroidEntryPoint` object that acts as the component holder.
+* Make sure that the component you pass as a parameter and the `EntryPointAccessors` static method both match the Android class in the `@InstallIn` annotation on the `@EntryPoint` interface:
